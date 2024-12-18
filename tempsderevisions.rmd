@@ -1,0 +1,719 @@
+---
+title: "Le monde étudiant à la loupe : Temps de révision et vie sociale"
+author: "Hafsa MOUSALLI & Imane LEMKHAYER"
+date: "À rendre pour le 18/12/2023"
+lang: "fr"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    number_section: no
+    theme: flatly
+    highlight: kate
+    df_print: paged
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r options_chunk, echo = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE
+  )
+```
+
+```{r Liste des package}
+
+library(tidyverse) 
+library(plotly)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(ggridges)
+library(readr)
+library(dplyr)
+library(forcats)
+library(patchwork)
+
+```
+
+```{r theme graphique}
+theme_set(theme_minimal()) # fixe le thème par défaut de ggplot2
+
+```
+
+```{r Chunks pour les palettes de couleurs}
+
+Palette1 <- c("#C293BC", "#8D3482", "#B39BC8", "#68095C","3C0035", "7D3C98", "#FFFF00","#490d49")
+
+Palette2<-c("#DAF7A6","#FFC300","#FF5733","#C70039","#900C3F")
+
+Palette3 <- c("#FFCCCC", "#FF9999", "#FF6666", "#FF3333", "#CC0000", "#990000", "#660000")
+
+```
+
+```{r Données}
+data<- read.table("sondage_version_finale.csv", header = TRUE, sep = ";", fileEncoding = "utf8")[,-(29:40)]
+
+
+data1<-read_delim("sondage_version_finale.csv", delim = ";")
+
+```
+
+```{r Liste des fonction}
+
+Hasard<-function(x,y){
+  Echantillon<-sample(1:ncol(x),1) 
+  aa<-y[Echantillon]
+  return(aa)
+} #Prendre une valeur au hasard dans notre dataframe
+
+```
+
+
+# Présentation du projet 
+
+En début de semestre, notre professeure, [Mme Scholler](https://juliescholler.gitlab.io) nous a sollicité afin que les étudiants de licences d'Économie et de L1 Gestion de l'[Université de Tours](https://www.univ-tours.fr/) répondent à un *sondage* qui a été réalisé via **Célène**.
+
+
+Ainsi, les réponses fournies par les étudiants à ce sondage ont facilité la collecte d'un ensemble de données, contribuant ainsi à la création et l'avancement de notre projet. 
+
+Dans le cadre de notre projet de fin de semestre sur le Logiciel R,  nous avons axé notre attention sur un aspect essentiel : **le temps de travail personnel des étudiants, mesuré en heures et excluant le temps passé en cours et en travaux dirigés (TD)**.
+
+*<u>Pour rappel :</u> ces données répondent seulement au temps de révision consacré par les étudiants la semaine qui a précédé leurs réponses.*
+
+Pour répondre à cette problématique, nous allons étudier les questions suivantes : 
+
+- Qui des L1, L2, L3, ont un temps de travail personnel, conséquent et à contrario plus faible?
+
+- Quelle est la proportion de temps passé sur les réseaux sociaux en fonction de l'année d’étude?
+
+-	Y a-t-il une dépendance entre le temps de travail personnel hebdomadaire et le temps passé par jour sur les réseaux sociaux ? le temps passé par jour sur le téléphone ? 
+
+- À quelle fréquence les étudiants vont en soirée ? Le fait d’aller en soirée impact-il leur temps de révision ? 
+
+Nous allons donc mettre en lien <u>le temps de travail personnel des étudiants avec:</u>
+
+- L'année d'étude
+
+- Le temps passé sur les réseaux sociaux
+
+- Le temps passé sur le téléphone
+
+- La fréquence des soirées par semaine.
+
+
+## Présentation des données du questionnaire 
+
+L'ensemble des questions est regroupé dans notre base de données qui contient **`r ncol(data1)`** questions et **`r nrow(data1)`** répondants. Ces derniers sont agés de **`r min(data$Age)`** ans à **`r max(data$Age)`** ans.
+
+
+Voici un exemple de questions qui ont été posées dans le questionnaire :
+
+* L'année d'obtention du baccalauréat ?
+* Enseignements de spécialités en terminale?
+* Le moyen de transport principal ?
+* Sources principales d'information ?
+* Le pays de naissance ?
+* Support principal pour la prise de note en cours ?
+* Réseau social le plus utilisé ?
+
+
+
+## Analyse du genre des répondants
+
+Nous allons représenter l'effectif du genre des répondants dans un tableau.
+
+```{r GENRE}
+
+tablegenre<-as.data.frame(table(data$Genre))
+colnames(tablegenre)<-c("Genre","Fréquence")
+tablegenre%>%
+   kable(
+    align = "c",
+    caption = "<center> Fréquence du genre parmis les répondants </center>"
+    ) %>% 
+  kable_styling(
+    full_width = TRUE, 
+    position = "center",
+    bootstrap_options = c("striped", "hover", "bordered")
+  )%>%
+  kable_classic_2(full_width = T)
+```
+
+On constate donc que la majorité des répondants sont **des hommes.** 
+
+## Analyse du niveau d'étude des répondants 
+```{r ANNEE DETUDE}
+
+tableannée<-as.data.frame(table(data$Année.d.étude))
+colnames(tableannée)<-c("Année","Fréquence")
+tableannée%>%
+   kable(
+    align = "c",
+    caption = "<center> Fréquence de l'année d'étude parmis les répondants </center>"
+    ) %>% 
+  kable_styling(
+    full_width = TRUE, 
+    position = "center",
+    bootstrap_options = c("striped", "hover", "bordered")
+  )%>%
+  kable_classic_2(full_width = T)
+```
+
+On constate que la majorité des étudiants ayant répondus au sondage sont **des étudiants en première année**. 
+
+Il est aussi nécessaire de préciser que l'effectif à la faculté des L1 diffère considèrablement avec celui des L2 et L3.
+
+
+# Le temps de travail personnel hebdomadaire de l'ensemble des étudiants
+
+On s'intérèsse d'abord plus globalement au temps de travail personnel en heure (hors présence en cours et TD) pour les étudiants la semaine qui a précédé leurs réponses.
+
+
+```{r DIAGRAMME}
+data$CatégorieTempsTravail <- cut(as.numeric(data$Temps.de.travail.personnel..scolaire..la.semaine.dernière.en.heure),
+                                  breaks = c(0, 5, 12, 20,50, 120),
+                                  labels = c("0-5 heures", "5-12 heures", "12-20 heures", "20-50 heures", "20-120 heures"),
+                                  include.lowest = TRUE)
+
+Diagrammecam <- as.data.frame(table(data$CatégorieTempsTravail))
+colnames(Diagrammecam) <- c("Temps", "Frequence")
+
+Cambert <- ggplot(Diagrammecam, aes(x="", y=Frequence, fill=Temps)) + 
+             geom_bar(stat="identity", colour="#DAF7A6", fill=Palette2) + 
+             coord_polar(theta="y", start=0)
+
+fig <- plot_ly(Diagrammecam, labels=~Temps, values=~Frequence, type='pie',
+               marker=list(colors=Palette2,
+                           line=list(color='#FFFFFF', width=1)))
+fig %>%
+  config(displayModeBar = FALSE)
+
+```
+
+Ce diagramme regroupe l'ensemble des étudiants des L1 au L3 qui ont répondu au sondage. 
+
+On constate que la semaine qui a précédé leur réponse, les étudiants ont majoritairement travaillé entre 0 et 5 heures. 
+
+
+## Présentation graphique du temps de travail hebdomadaire des étudiants
+
+
+```{r Chunk 1}
+proportion <- as.data.frame(table(data$CatégorieTempsTravail))
+colnames(Diagrammecam) <- c("Temps", "Frequence")
+
+
+
+```
+
+
+```{r Chunk 2_2}
+
+
+ggplot(proportion, aes(x=Var1, y=Freq, fill=Var1)) +
+  geom_bar(stat="identity", width=0.9, colour="#F9F9F9") +
+  labs(x="Tranche de temps de révision",
+       y="Effectif",
+       title="TEMPS DE REVISION LA SEMAINE DERNIERE",
+       fill = "Tranche de temps révision") +
+  theme(plot.title = element_text(hjust = 0.5))+
+      scale_fill_manual(values=Palette2)
+
+
+
+```
+
+## Présentation sous forme de tableau
+
+Les graphiques permettent d'avoir une idée rapide et intutive de la répartition des données, mais pour avoir une meilleure précision sur les données on peut les représenter sous forme de tableau:
+
+```{r TABLEAU 1}
+
+proportion %>% 
+  kable(
+    align = "c",
+    caption = "Répartition des répondants en fonction de leur temps de révision",
+      col.names = c("Tranches horaires", "Nombre d'étudiants")
+    ) %>% 
+  kable_styling(full_width = TRUE, #toute la page 
+    position = "center",
+    bootstrap_options = c("striped", "hoover","bordered")
+    )#Pour un tableau avec des bandes
+    
+
+
+```
+
+
+# Temps de révision / Année d'étude
+
+<u>Nous allons maintenant examiner quel niveau d'études L1, L2, ou L3 affiche un temps de travail personnel plus élevé ou plus faible.</u>
+
+## Représentation sous forme de tableau 
+
+```{r TABLEAU 2 }
+
+data$CatégorieTempsTravail <- cut(as.numeric(data$Temps.de.travail.personnel..scolaire..la.semaine.dernière.en.heure),
+                                  breaks = c(0, 5, 12, 20,50, 120),
+                                  labels = c("0-5 heures", "5-12 heures", "12-20 heures", "20-50 heures", "20-120 heures"),
+                                  include.lowest = TRUE)
+
+
+tab <- table(data$Année.d.étude, data$CatégorieTempsTravail) 
+
+kable(tab,
+     align = "c",
+    caption = "Répondantes et répondants selon le travail hebdomadaire et l'année d'étude"
+    ) |> 
+  kable_styling(
+    full_width = FALSE,
+    position = "center",
+    bootstrap_options = c("striped", "bordered", "hover")
+    )|> 
+   add_header_above( #Pour les headers
+    c(" " = 1,
+      "Moins de 20heures" = 3,
+      "Plus de 20 heures" = 2)
+  )|> 
+  add_header_above(
+    c("Année d'étude" = 1,
+      "Temps de révision" = 5)
+    )
+ 
+```
+
+Ce tableau montre que la plupart des étudiants consacrent entre *0 et 5 heures* à leurs études. On observe également que étudiants de première année sont les plus nombreux. 
+
+Par ailleurs, nous avons précédemment vus que les L1 sont ceux possédant le plus grand nombre de répondants au sondage. 
+
+## Représentation graphique par Licence
+
+<u>Représentons maintenant ces données sous forme de graphique pour chacune des licences.</u> 
+
+```{r GRAP LICENCE}
+library(ggplot2)
+library(patchwork)
+
+proportion2 <- as.data.frame(table(data$CatégorieTempsTravail, data$Année.d.étude))
+colnames(proportion2) <- c("Temps", "Année", "Frequence")
+
+
+graphL1 <- ggplot(subset(proportion2, Année == "L1"), aes(x=Temps, y=Frequence, fill=Temps)) +
+  geom_bar(stat="identity", width=0.9, colour="#F9F9F9") +
+  labs(x="Tranche de temps de révision", y="Effectif", title="L1") +
+  theme(plot.title = element_text(size=10, hjust = 0.5), #apparence du graph
+        axis.text.x = element_text(angle=45, hjust=1, size=7),
+        axis.text.y = element_text(size=7),
+        legend.title=element_blank(), #suppression du titre
+        legend.text=element_text(size=6)) +
+  scale_fill_manual(values=Palette2) 
+
+#stat identity valeur des freq pour la hauteur des barres
+
+graphL2 <- ggplot(subset(proportion2, Année == "L2"), aes(x=Temps, y=Frequence, fill=Temps)) +
+  geom_bar(stat="identity", width=0.9, colour="#F9F9F9") +
+  labs(x="Tranche de temps de révision", y="Effectif", title="L2") +
+  theme(plot.title = element_text(size=10, hjust = 0.5),
+        axis.text.x = element_text(angle=45, hjust=1, size=7),
+        axis.text.y = element_text(size=7),
+        legend.title=element_blank(),
+        legend.text=element_text(size=6)) +
+  scale_fill_manual(values=Palette2) 
+
+graphL3 <- ggplot(subset(proportion2, Année == "L3"), aes(x=Temps, y=Frequence, fill=Temps)) +
+  geom_bar(stat="identity", width=0.9, colour="#F9F9F9") +
+  labs(x="Tranche de temps de révision", y="Effectif", title="L3") +
+  theme(plot.title = element_text(size=10, hjust = 0.5),
+        axis.text.x = element_text(angle=45, hjust=1, size=7),
+        axis.text.y = element_text(size=7),
+        legend.title=element_blank(),
+        legend.text=element_text(size=6)) +
+  scale_fill_manual(values=Palette2) 
+
+(graphL1 | graphL2 | graphL3) + 
+  plot_layout(guides = 'collect') & #toutes les légendes en une seule
+  theme(legend.position = 'bottom') #légende en bas
+
+
+```
+
+On remarque que le nombre de répondants pour les L1, L2 et L3 est différent.Nous l'avons précédemment analyser sous forme de tableau. 
+
+La disproportion du nombre d'étudiants entre les niveaux L1, L2 et L3 peut entraîner <u>la possibilité d'un résultat  potentiellement biaisé</u> lorsque l’on compare les trois niveaux de licences. 
+
+Cette disproportion pourrait  ne pas refléter véritablement le temps de révision pour chaque niveau d'étude. 
+Pour tout niveau de licence donné, le temps de révision (hors TD et CM) varie entre 0 et 5 heures. 
+
+Mais ce sont les L1 qui révisent moins car ils sont 2 fois plus nombreux que les L2 et L3.
+
+
+# L'impact des réseaux sociaux sur les révisions des étudiants 
+
+## Temps sur les réseaux en fonction de l'année d'étude
+
+<u>Nous allons maintenant étudier quel niveau d'étude (L1, L2 ou L3) passe le plus de temps sur les réseaux sociaux.</u>
+
+```{r}
+
+TableReseauAnnee <- data.frame(
+  Réseau = data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure,
+  Année = data$Année.d.étude
+)
+
+ggplot(TableReseauAnnee, aes(x = Réseau, y = factor(Année), fill = Année, group = factor(Année))) +
+  geom_density_ridges() +
+  scale_fill_manual(values = Palette1) +
+  labs(
+    x = "Heures passées sur les réseaux",
+    y = "Année d'étude",
+    
+    title = "Densité du temps passé sur les réseaux \n en fonction de l'année d'étude"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+Les étudiants en licence ont tendance à passer entre *0 et 8 heures* sur les réseaux sociaux. Cependant ils passent beaucoup plus de temps sur les réseaux sociaux entre *0 et 4 heures*. 
+
+**La variance permet de quantifier la dispersion des données d'un ensemble par rapport à leur moyenne.** 
+
+On va chercher la variance du temps passé sur les réseaux sociaux dans chacune des licences : 
+
+ -   Pour les L1 la variance est de **`r round(var(data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure[data$Année.d.étude=="L1"]),2)`**.
+
+  -   Pour les L2 la variance est égale à **`r round(var(data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure[data$Année.d.étude=="L2"]),2)`**.
+
+  -   Enfin, pour les L3 la variance est égale **`r round(var(data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure[data$Année.d.étude=="L3"]),2)`**.
+
+On constate donc que la variance du temps passé sur les réseaux sociaux des *L3* est plus grande que celles des *L1* et *L2*.
+
+Cela implique que les étudiants de troisième année ont des habitudes d'utilisation des réseaux sociaux plus variées comparées aux L1 et L2.
+
+Dans notre étude, cela se traduit par des étudiants en L3 ayant des durées d'utilisation des réseaux sociaux qui varient considérablement d'un individu à l'autre.
+Il y a une plus grande diversité dans la façon dont ils utilisent les réseaux sociaux.
+
+Maintenant, nous allons nous intéresser à la moyenne du temps passé sur les réseaux sociaux danc chacune des licences. 
+
+ -   Pour les L1 la moyenne est égale à **`r round(mean(data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure[data$Année.d.étude=="L1"]),2)`**.
+
+  -   Pour les L2 la moyenne est égale à **`r round(mean(data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure[data$Année.d.étude=="L2"]),2)`**.
+
+  -   Pour les L3 la moyenne est égale à **`r round(mean(data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure[data$Année.d.étude=="L3"]),2)`**.
+  
+Ainsi, ce sont les L1 qui passent en moyenne plus de temps sur les réseaux, pour une moyenne de **`r round(mean(data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure[data$Année.d.étude=="L1"]),2)`**. Mais leur moyenne reste considérablement proche de celles des L2 et L3.
+
+```{r, echo = FALSE}
+
+# Calcule des densités max par licence
+max_densities <- TableReseauAnnee %>%
+  group_by(Année) %>%
+  summarise(max_density = max(density(Réseau)$y))
+
+max_densities
+
+```
+
+La proportion de temps passé sur les réseaux sociaux semble avoir **une tendance identique entre les étudiants de L2 et de L3**. 
+
+En effet, on constate que la valeur maximum de la densité ne diffère presque pas entre la deuxième et la troisième année. 
+
+A contrario, pour les L1, on observe une légère diminution du maximum de la densité par rapport aux étudiants de L2 et de L3.
+
+On peut donc supposer que les variations observées entre les différentes années d'étude suggèrent des comportements distincts en matière d'utilisation des réseaux sociaux. 
+
+Les étudiants semblent ajuster leur temps passé sur les réseaux sociaux en réponse aux différentes exigences et responsabilités associées à chaque année d'étude. 
+
+<u>En complément de cette analyse, par curiosité, nous analyserons quel est le réseau social favori des étudiants à chaque niveau d'étude.</u>
+
+## Présentation graphique du réseau social préféré par Licence
+
+```{r echo=FALSE}
+réseau_pref <- as.data.frame(table(data$Année.d.étude, data$Réseau.social.le.plus.utilisé))
+colnames(réseau_pref) <- c("Année", "Réseau", "Fréquence")
+
+ggBarRéseau <- ggplot(réseau_pref, aes(x = Réseau, y = Fréquence, fill = Année)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7, colour = "#F9F9F9") +
+  scale_fill_manual(values = Palette1) +
+  theme(legend.position = "bottom") +
+  labs(x = "Réseaux sociaux",
+       y = "Fréquence",
+       title = "Les réseaux sociaux les plus utilisés\n en fonction de l'année d'étude") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill = guide_legend(title.position = "top", title.hjust = 0.5))
+
+ggplotly(ggBarRéseau) %>%
+  config(displayModeBar = FALSE)
+
+```
+
+On constate que les étudiants utilisent en grande majorité *Instagram*. 
+
+Toutefois, il est à noter que pour les étudiants de troisième année, *Snapchat et Twitter* restent également très appréciés.
+
+ 
+## Test d'indépendance entre ces 2 variables.
+
+<u>Nous allons effectuer un test d'indépendance entre le temps de travail personnel la semaine passée et le temps passé sur les réseaux sociaux.</u>
+On peut se demander si les deux variables sont corrélées.
+
+On pose donc les hypothèses suivantes: 
+
+- *H0 = les variables sont indépendantes* : le temps de révision est indépendant du temps passé sur les réseaux sociaux
+
+- *H1 = les variables sont dépendantes* : le temps de révision est dépendant du temps passé sur les réseaux sociaux
+
+
+```{r}
+table_contingence <- table(data$Temps.de.travail.personnel..scolaire..la.semaine.dernière.en.heure, data$Temps.passé.par.jour.sur.les.réseaux.sociaux.en.heure)
+
+
+khi_test <- chisq.test(table_contingence)
+khi_test
+
+```
+
+On trouve une P-value égale à **`r round(khi_test$p.value, 12)`**.
+
+On a **`r round(khi_test$p.value, 12)` < à 0.05**.
+
+Donc, on peut rejeter l'hypothèse H0 qui signifie que les deux variables sont indépendantes les unes des autres.
+
+La p-value étant extrêmement petite, cela indique qu'il y a des preuves statistiquement significatives pour rejeter l'hypothèse nulle. 
+
+En d'autres termes, <u>le temps passé sur les réseaux sociaux est dépendant du temps de révision.</u>
+Donc, il y a bien un impact des réseaux sociaux sur les révisions des étudiants.
+
+# L'impact du téléphone sur les révisions des étudiants
+ 
+## Temps passé sur le téléphone en fonction de l'année d'étude 
+
+<u>Dans la continuité de ce que l'on vient d'analyser, on peut aussi analyser l'impact du téléphone sur les révisions.</u>
+
+Voici un graphique qui représente cet impact en fonction de l'année d'étude : 
+ 
+```{r}
+
+TableTelAnnee <- data.frame(
+  Tel = data$Temps.passé.par.jour.sur.votre.téléphone.en.heure,
+  Année = data$Année.d.étude
+)
+
+
+ggplot(TableTelAnnee, aes(x = Tel, y = factor(Année), fill = Année, group = factor(Année))) +
+  geom_density_ridges() +
+  scale_fill_manual(values = Palette1) +
+  labs(
+    x = "Heures passées sur les réseaux",
+    y = "Année d'étude",
+    
+    title = "Densité du temps passé sur le téléphone par jour \n en fonction de l'année d'étude"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+ 
+Représentons les données obtenus au dessus dans un tableau afin de mieux observer cette répartition : 
+
+
+```{r}
+
+colnames(TableTelAnnee)<-c("Soirée","Année")
+
+Tabtél<-table(TableTelAnnee)
+Tabtél%>%
+   kable(
+    align = "c",
+    caption = "<center>Répartition des répondants en fonction du temps passé par jour sur leur téléphone"
+    ) %>% 
+  kable_styling(
+    full_width = TRUE, 
+    position = "center",
+    bootstrap_options = c("striped", "hover", "bordered") #Pour un tableau avec des bandes
+  )%>%
+  kable_classic_2(full_width = T)%>%
+  add_header_above( 
+    c("Temps en heure sur le téléphone" = 1,
+      "Année d'étude" = 3))
+
+
+```
+
+A travers ce tableau, on constate que les étudiants passent en majorité 4 et 5 heures sur leur téléphone par jour. 
+
+## Test d'indépendance
+ 
+On pose donc les hypothèses suivantes : 
+
+- *H0 : les variables sont indépendantes*: le temps de révision est indépendant du temps passé sur le téléphone
+
+- *H1 : les variables sont dépendantes*: le temps de révision est dépendant du temps passé sur le téléphone.
+
+```{r}
+table_contingence2 <- table(data$Temps.passé.par.jour.sur.votre.téléphone.en.heure, data$Temps.de.travail.personnel..scolaire..la.semaine.dernière.en.heure)
+
+
+khi_test2 <- chisq.test(table_contingence2)
+khi_test2
+```
+ 
+On trouve une P-value égale à *`r round(khi_test2$p.value, 2)`.*
+
+On a *`r round(khi_test2$p.value, 2)`* > à 0.05.
+
+Donc, on **ne peut pas rejeter l'hypothèse H0** qui signifie que les deux variables sont indépendantes les unes des autres.
+
+En d'autres termes, <u>le temps passé sur le téléphone est indépendant du temps de révision.</u>
+Donc il n'y a pas d'impact du téléphone sur les révisions des étudiants.
+
+Cela indique qu'il n'y a pas assez des preuves statistiquement significatives pour rejeter l'hypothèse nulle. 
+
+Cependant, cela ne signifie pas nécessairement que ces variables sont totalement indépendantes.
+En effet, des facteurs non pris en compte dans l'analyse, tels que la qualité du temps de révision, la motivation pourraient influencer la relation entre ces deux variables de manière plus subtile. 
+
+On peut se demander : **<u>Comment se fait-il que le temps passé sur les réseaux sociaux affecte les révisions, alors que l'utilisation globale du téléphone ne semble pas avoir d'impact, bien que les réseaux sociaux soient majoritairement consultés via le téléphone ?</u>**
+
+* Premièrement, des facteurs tels qu'une petite taille d'échantillon, une variabilité élevée, des erreurs de mesure et la complexité potentielle de la relation peuvent contribuer à ce résultat. De plus, les résultats statistiques ne reflètent pas toujours les relations causales réelles. 
+
+* Par ailleurs, les téléphones sont utilisés pour une multitude d'activités autres que les réseaux sociaux (appels téléphoniques, messages, mail...). Ils peuvent être utilisés de manière ciblée.
+Le temps passé sur le téléphone peut ne pas être forcément corrélé avec les révisions. 
+
+* En revanche, l'utilisation des réseaux sociaux peut être une source de distraction et impacter directement le temps de révision.
+Certains étudiants peuvent utiliser efficacement leur téléphones pour les études, tandis que d'autres peuvent se laisser distraire par les réseaux sociaux.
+
+ 
+# Les soirées
+ 
+Jusqu'à présent, notre étude s'est concentrée sur l'analyse du genre des étudiants ayant participé au sondage et de la distribution des réponses selon leur année d'études. 
+Nous avons également étudié le temps de travail personnel des étudiants, tant de manière générale que spécifiquement par niveau de licence.
+
+Enfin nous avons examiné si l'utilisation des réseaux sociaux et du téléphone peuvent avoir un impact sur les révisions des étudiants. 
+
+*<u>Attention :</u> Il est important de préciser à nouveau que ces données ne reflètent pas le temps de révision des étudiants de manière générale, mais se concentrent uniquement sur le temps de révision durant la semaine précédant leur réponse au sondage.*
+
+## Fréquence des soirées 
+
+Maintenant, nous allons nous intéresser à une nouvelle variable qui occupe la vie de plusieurs étudiants : *les soirées* (surtout celle du jeudi).
+
+<u>On va donc étudier la fréquence des soirées chez les étudiants.</u>
+
+```{r echo=FALSE}
+
+nb_soirées<-as.data.frame(table(data$Nombre.de.soirées.par.semaine.en.moyenne))
+moy_soirées<-mean(data$Nombre.de.soirées.par.semaine.en.moyenne)
+colnames(nb_soirées)<-c("Soirées","Frequence")
+```
+
+```{r}
+ggBarSoirées<-ggplot(nb_soirées, aes(x=Soirées,y=Frequence))+
+  geom_bar(stat="identity",width=1,colour="#F9F9F9",fill=Palette3)+
+  coord_flip() + theme(legend.position="bottom")+
+  labs(x="Nombre de soirée par semaine",
+       y="Fréquence",
+       title="Fréquence de soirées hebdomadaire chez les étudiants")+
+  theme(plot.title = element_text(hjust = 0.5))
+ggplotly(ggBarSoirées)%>%
+  layout(showlegend = FALSE)%>%
+    config(displayModeBar = FALSE)
+
+
+```
+
+Sur ce graphique, on observe donc que 94 étudiants ne vont pas en soirée et 68 étudiants vont 1 fois en soirée par semaine.  
+
+
+## Représentation sous forme de tableau 
+
+Représentons les données obtenues au dessus dans un tableau:
+
+
+```{r}
+
+AnnéeSoirée<-data.frame(data$Nombre.de.soirées.par.semaine.en.moyenne, data$Année.d.étude) 
+colnames(AnnéeSoirée)<-c("Soirée","Année")
+
+Tabsoirée<-table(AnnéeSoirée)
+Tabsoirée%>%
+   kable(
+    align = "c",
+    caption = "<center>Répartition des répondants en fonction de leur nombre de soirée hebdomadaire"
+    ) %>% 
+  kable_styling(
+    full_width = TRUE, 
+    position = "center",
+    bootstrap_options = c("striped", "hover", "bordered") #Pour un tableau avec des bandes
+  )%>%
+  kable_classic_2(full_width = T)%>%
+  add_header_above( #Pour les headers
+    c("Nombre de soirée" = 1,
+      "Année d'étude" = 3))
+```
+
+
+<u>Nous allons donc étudier l'impact des soirées sur les révisions des étudiants qui vont en soirée.</u>
+
+## Les Tests
+
+Verifions une fois de plus avec un test d’indépendance si les soirées hebdomadaires impactent le temps de révision des étudiants : 
+
+*H0 = les variables sont indépendantes*
+
+*H1 = les variables sont dépendantes*
+
+### Test du Khi-Deux
+```{r}
+
+tabindépendance <- table(data$Nombre.de.soirées.par.semaine.en.moyenne, data$Temps.de.travail.personnel..scolaire..la.semaine.dernière.en.heure)
+
+khi_test3 <- chisq.test(tabindépendance)
+
+khi_test3
+
+```
+
+Étant donné que la p-value est de **0.9735**, qui est bien supérieure au seuil de 5%. On ne peut pas rejeter H0.
+
+En d'autres termes, ces résultats suggèrent que ces <u>2 variables sont statistiquement indépendantes l'une de l'autre avec notre échantillon.</u> 
+
+Par conséquent, nous ne disposons pas assez de preuves significatives montrant que le nombre de soirées par semaine et le temps de travail personnel scolaire sont associés. On ne peut donc pas prouver que les soirées ont un impact sur le temps de révision.
+
+Cela ne veut pour autant pas dire que les variables sont indépendantes dans toutes les situations. Mais avec ce sondage, il est difficile prouver la dépendance.
+
+### Test de Fisher
+
+```{r}
+tabindépendance <- table(data$Nombre.de.soirées.par.semaine.en.moyenne, data$Temps.de.travail.personnel..scolaire..la.semaine.dernière.en.heure)
+
+
+fisher_test <- fisher.test(tabindépendance, simulate.p.value = TRUE)
+fisher_test
+
+
+```
+
+Le test de Fisher va permettre lui aussi de déterminer la dépendance ou non. Il est d'autant plus approprié qu'un test du khi-deux car il s'effectue avec des effectifs très petits (car dans ce cas l'effectif des soirées est de 4 par semaine maximum).
+
+A travers cet autre test, on remarque la même chose : les variables sont indépendantes. 
+On a une p-value de **0.8026** qui est nettement supérieure à 0.05. 
+On ne peut pas rejeter l'hypothèse H0.
+
+Donc on ne peut pas conclure à une dépendance entre le nombre de soirée par semaine et le temps de révision (la semaine qui a précédé les réponses).
+
+# Conclusion
+
+Notre étude a révélé que parmi les étudiants de l'Université de Tours, les réseaux sociaux impactent
+les révisions des étudiants. Les premières années (L1), passent en moyenne plus de temps sur les réseaux sociaux. 
+
+Par ailleurs, le temps global passé sur le téléphone n'affecte pas les habitudes de révision. On suppose que l'usage du téléphone est plus diversifié. 
+
+Les fréquentations des soirées ne montrent pas non plus de corrélation significative avec le temps de révision.
+
+Enfin, l'analyse a montré que globalement les étudiants ont révisé entre 0 et 5 heures la semaine qui a précédé leur réponse, indépendamment de leur utilisation des réseaux sociaux, du téléphone ou de leur participation à des soirées.
+
+
+
+
